@@ -2,4 +2,5 @@
 
 uvicorn main:app --reload
 
-(remember to activate the .venv)    
+(remember to activate the .venv) 
+Pay attention!
