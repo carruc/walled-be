@@ -9,6 +9,7 @@ from core.guardrails import check_prompt_injection_with_runpod, PromptInjectionD
 from bs4 import BeautifulSoup
 import httpx
 from core.browser import BrowserManager
+from core.tasks import running_tasks
 
 client_id_var: ContextVar[str] = ContextVar("client_id")
 
@@ -152,7 +153,19 @@ async def summarize_page_content():
         print("[Guardrail PI] Final result:", result)
     except PromptInjectionDetected:
         print("[Guardrail PI] Prompt injection detected!!!")
-        # Propagate to fail the tool call on high-confidence injection
+        try:
+            client_id = client_id_var.get()
+            if client_id:
+                await manager.send_personal_message(json.dumps({
+                    "type": "guardrail_violation",
+                    "data": {"message": "Potential prompt injection detected. Stopping agent."}
+                }), client_id)
+                task = running_tasks.get(client_id)
+                if task:
+                    task.cancel()
+                    del running_tasks[client_id]
+        except Exception as notify_err:
+            print("[Guardrail PI] Error notifying client / stopping agent:", notify_err)
         raise
     except Exception as e:
         print("[Guardrail PI] Error during check:", e)
@@ -186,6 +199,20 @@ async def summarize_webpage(url: str, max_chars: int = 5000):
         result = await check_prompt_injection_with_runpod(text)
         print("[Guardrail PI] Final result:", result)
     except PromptInjectionDetected:
+        print("[Guardrail PI] Prompt injection detected!!!")
+        try:
+            client_id = client_id_var.get()
+            if client_id:
+                await manager.send_personal_message(json.dumps({
+                    "type": "guardrail_violation",
+                    "data": {"message": "Potential prompt injection detected. Stopping agent."}
+                }), client_id)
+                task = running_tasks.get(client_id)
+                if task:
+                    task.cancel()
+                    del running_tasks[client_id]
+        except Exception as notify_err:
+            print("[Guardrail PI] Error notifying client / stopping agent:", notify_err)
         raise
     except Exception as e:
         print("[Guardrail PI] Error during check:", e)

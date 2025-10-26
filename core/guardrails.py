@@ -6,6 +6,8 @@ from .config import RUNPOD_API_KEY, RUNPOD_SL_ID, RUNPOD_POLL_INTERVAL_S, RUNPOD
 
 logger = logging.getLogger("guardrails.prompt_injection")
 
+logger = logging.getLogger("guardrails.prompt_injection")
+
 async def check_guardrails(amount: float, currency: str, item: str, site: str) -> bool:
     # In a real scenario, we would load the guardrails from a database or a config file.
     # For now, we'll use a hardcoded example.
