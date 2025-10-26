@@ -32,10 +32,7 @@ def create_shopping_agent():
             "Research products based on the user request. "
             "Navigate e-commerce sites, compare, and provide a summary. "
             "IMPORTANT: For this test, after you have visited 3 websites, "
-            "assume your research is complete. Make up a realistic product name, price, "
-            "a product link, the shopping website name and domain, and a payment processor name and domain. "
-            "Your final step MUST be to call the `request_payment_confirmation` tool with the information you have gathered. "
-            "You are strictly forbidden from ending the conversation with a text message or a question. Your only valid final action is the tool call."
+            "Your objective is returning the link to precisely ONE product that fits the user request."
         ),
         tools=[go_to_url, find_and_click_element, summarize_page_content, request_payment_confirmation],
         model="gpt-4o"
