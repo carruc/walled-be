@@ -4,6 +4,7 @@ import json
 router = APIRouter()
 
 payment_confirmation_events = {}
+plan_approval_events = {}
 user_decisions = {}
 
 
@@ -37,6 +38,11 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
                 if client_id in payment_confirmation_events:
                     user_decisions[client_id] = decision
                     payment_confirmation_events[client_id].set()
+            elif message.get("type") == "plan_response":
+                decision = message.get("data", {}).get("decision")
+                if client_id in plan_approval_events:
+                    user_decisions[client_id] = decision
+                    plan_approval_events[client_id].set()
     except WebSocketDisconnect:
         manager.disconnect(client_id)
     except json.JSONDecodeError:
