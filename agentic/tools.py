@@ -57,15 +57,21 @@ async def request_payment_confirmation(amount: float, currency: str, item: str, 
     Requests user confirmation for a payment.
     This tool will pause execution until the user responds.
     """
-    if not await check_guardrails(amount, currency, item):
-        return "Guardrail check failed. Payment request blocked."
+    #guardrails_passed = await check_guardrails(amount, currency, item, site1)
 
+    
     client_id = client_id_var.get()
     if not client_id:
         return "Error: client_id not set."
 
+
     event = asyncio.Event()
     payment_confirmation_events[client_id] = event
+
+
+    # Determine if approval is required based on guardrail results
+    #approval_required = not guardrails_passed
+    #approval_label = "User approval required" if approval_required else "Purchase doesn't need approval"
     
     payload = {
         "type": "payment_request",
@@ -78,6 +84,8 @@ async def request_payment_confirmation(amount: float, currency: str, item: str, 
             "site1Domain": site1Domain,
             "site2": site2,
             "site2Domain": site2Domain,
+            "approval_required": True,
+            "approval_label": "User approval required"
         }
     }
     await manager.send_personal_message(json.dumps(payload), client_id)

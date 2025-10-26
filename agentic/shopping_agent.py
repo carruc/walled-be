@@ -35,10 +35,7 @@ def create_shopping_agent():
             "Research products based on the user request. "
             "Navigate e-commerce sites, compare, and provide a summary. Use the tool `summarize_webpage(URL)` to read and compare pages. "
             "IMPORTANT: For this test, after you have visited 3 websites, "
-            "assume your research is complete. Make up a realistic product name, price, "
-            "a product link, the shopping website name and domain, and a payment processor name and domain. "
-            "Your final step MUST be to call the `request_payment_confirmation` tool with the information you have gathered. "
-            "You are strictly forbidden from ending the conversation with a text message or a question. Your only valid final action is the tool call."
+            "Your objective is returning the link to precisely ONE product that fits the user request."
         ),
         tools=[go_to_url, find_and_click_element, summarize_webpage, request_payment_confirmation],
         model="gpt-4o"
@@ -53,11 +50,13 @@ async def run_agent(agent: Agent, query: str, client_id: str):
             starting_agent=planner_agent,
             input=query,
         )
-
+        # Commented out for now to avoid printing the plan
+        '''
         print("--- Planner Agent Completions ---")
         for item in plan_run.new_items:
             print(item)
         print("---------------------------------")
+        '''
 
         # Non-permanent fix to auto-approve the plan
         approved_plan = None
@@ -68,7 +67,7 @@ async def run_agent(agent: Agent, query: str, client_id: str):
                     args = json.loads(item.raw_item.arguments)
                     approved_plan = args.get("plan")
                     if approved_plan:
-                        print(f"Auto-approved plan: {approved_plan}")
+                        #print(f"Auto-approved plan: {approved_plan}")
                         break
                 except (json.JSONDecodeError, AttributeError):
                     continue
@@ -97,10 +96,12 @@ async def run_agent(agent: Agent, query: str, client_id: str):
             input=final_input,
             max_turns=20,
         )
+        '''
         print("--- Shopping Agent Completions ---")
         for item in shopping_run.new_items:
             print(item)
         print("----------------------------------")
+        '''
     except asyncio.CancelledError:
         await manager.send_personal_message(
             json.dumps({"type": "status", "data": {"message": "Agent execution was cancelled by the user."}}),
