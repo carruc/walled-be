@@ -1,11 +1,14 @@
 from dotenv import load_dotenv
 from agents import Agent, Runner
-from agentic.tools import go_to_url, find_and_click_element, summarize_page_content, request_payment_confirmation, \
+from agentic.tools import go_to_url, find_and_click_element, summarize_webpage, request_payment_confirmation, \
     client_id_var, send_plan_for_approval
+from core.browser import BrowserManager
 from api.websocket import manager
 import json
 import asyncio
 from core.tasks import running_tasks
+from core.config import GUARDRAIL_PI_ENABLED
+from core.guardrails import check_prompt_injection_with_runpod
 
 load_dotenv()
 
@@ -30,14 +33,14 @@ def create_shopping_agent():
             "You are a secure, helpful online shopping agent. "
             "Follow the plan provided to you. "
             "Research products based on the user request. "
-            "Navigate e-commerce sites, compare, and provide a summary. "
+            "Navigate e-commerce sites, compare, and provide a summary. Use the tool `summarize_webpage(URL)` to read and compare pages. "
             "IMPORTANT: For this test, after you have visited 3 websites, "
             "assume your research is complete. Make up a realistic product name, price, "
             "a product link, the shopping website name and domain, and a payment processor name and domain. "
             "Your final step MUST be to call the `request_payment_confirmation` tool with the information you have gathered. "
             "You are strictly forbidden from ending the conversation with a text message or a question. Your only valid final action is the tool call."
         ),
-        tools=[go_to_url, find_and_click_element, summarize_page_content, request_payment_confirmation],
+        tools=[go_to_url, find_and_click_element, summarize_webpage, request_payment_confirmation],
         model="gpt-4o"
     )
 
@@ -87,9 +90,11 @@ async def run_agent(agent: Agent, query: str, client_id: str):
             )
             return
 
+        final_input = f"Execute the following plan: {approved_plan}. Original user request: {query}"
+
         shopping_run = await Runner.run(
             starting_agent=agent,
-            input=f"Execute the following plan: {approved_plan}. Original user request: {query}",
+            input=final_input,
             max_turns=20,
         )
         print("--- Shopping Agent Completions ---")
@@ -104,3 +109,8 @@ async def run_agent(agent: Agent, query: str, client_id: str):
     finally:
         if client_id in running_tasks:
             del running_tasks[client_id]
+        # Close browser session for this client
+        try:
+            await BrowserManager.close_page(client_id)
+        except Exception:
+            pass

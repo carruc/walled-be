@@ -4,6 +4,11 @@ import json
 from api.websocket import manager, payment_confirmation_events, user_decisions, plan_approval_events
 from contextvars import ContextVar
 from core.guardrails import check_guardrails
+from core.config import GUARDRAIL_PI_ENABLED
+from core.guardrails import check_prompt_injection_with_runpod
+from bs4 import BeautifulSoup
+import httpx
+from core.browser import BrowserManager
 
 client_id_var: ContextVar[str] = ContextVar("client_id")
 
@@ -91,24 +96,87 @@ async def request_payment_confirmation(amount: float, currency: str, item: str, 
 
 
 @tool
-def go_to_url(url: str):
-    """Navigates to a specific URL."""
-    # This is a placeholder. In a real scenario, this would
-    # use a browser automation library like Selenium or Playwright.
-    print(f"Navigating to {url}")
-    return f"Successfully navigated to {url}"
+async def go_to_url(url: str):
+    """Navigates to a specific URL and returns basic page metadata."""
+    client_id = client_id_var.get()
+    if not client_id:
+        return "Error: client_id not set."
+    page = await BrowserManager.get_page(client_id)
+    try:
+        resp = await page.goto(url, wait_until="domcontentloaded", timeout=20000)
+        title = await page.title()
+        final_url = page.url
+        status = resp.status if resp else 0
+        return f"Successfully navigated to {final_url}. Status: {status}. Title: {title}"
+    except Exception as e:
+        return f"Error navigating to {url}: {e}"
 
 
 @tool
-def find_and_click_element(selector: str):
+async def find_and_click_element(selector: str):
     """Finds an element on the page using a CSS selector and clicks it."""
-    # Placeholder
-    print(f"Finding and clicking element with selector: {selector}")
-    return f"Clicked element with selector: {selector}"
+    client_id = client_id_var.get()
+    if not client_id:
+        return "Error: client_id not set."
+    page = await BrowserManager.get_page(client_id)
+    try:
+        await page.wait_for_selector(selector, state="visible", timeout=10000)
+        await page.click(selector, timeout=10000)
+        return f"Clicked element with selector: {selector}"
+    except Exception as e:
+        return f"Error clicking element {selector}: {e}"
 
 
 @tool
-def summarize_page_content():
+async def summarize_page_content():
     """Summarizes the content of the current web page."""
-    # Placeholder
-    return "This is a summary of the page content."
+    client_id = client_id_var.get()
+    if not client_id:
+        return "Error: client_id not set."
+    page = await BrowserManager.get_page(client_id)
+    try:
+        raw = await page.locator('body').inner_text()
+    except Exception as e:
+        return f"Error reading page content: {e}"
+    text = ' '.join((raw or '').split())
+    try:
+        result = await check_prompt_injection_with_runpod(text)
+        print("[Guardrail PI] Final result:", result)
+    except Exception as e:
+        print("[Guardrail PI] Error during check:", e)
+    return text[:800] if text else "(No content)"
+
+
+@tool
+async def summarize_webpage(url: str, max_chars: int = 5000):
+    """Fetches a URL in a browser, runs a guardrail on text, and returns a summary."""
+    client_id = client_id_var.get()
+    if not client_id:
+        return "Error: client_id not set."
+    page = await BrowserManager.get_page(client_id)
+    try:
+        await page.goto(url, wait_until="networkidle", timeout=20000)
+    except Exception as e:
+        return f"Error fetching URL: {e}"
+
+    try:
+        html = await page.content()
+        raw = await page.locator('body').inner_text()
+    except Exception as e:
+        return f"Error reading page: {e}"
+
+    soup = BeautifulSoup(html, 'html.parser')
+    for tag in soup(["script", "style", "noscript"]):
+        tag.decompose()
+    text = ' '.join((raw or '').split())[:max_chars]
+
+    try:
+        result = await check_prompt_injection_with_runpod(text)
+        print("[Guardrail PI] Final result:", result)
+    except Exception as e:
+        print("[Guardrail PI] Error during check:", e)
+
+    title = await page.title()
+    summary_body = text[:800]
+    summary = f"{title}\n\n{summary_body}".strip()
+    return summary or "(No summary available)"
