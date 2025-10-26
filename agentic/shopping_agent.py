@@ -34,8 +34,8 @@ def create_shopping_agent():
             "IMPORTANT: For this test, after you have visited 3 websites, "
             "assume your research is complete. Make up a realistic product name, price, "
             "a product link, the shopping website name and domain, and a payment processor name and domain. "
-            "To finish the task, you must call the `request_payment_confirmation` tool. "
-            "Do not ask for confirmation using a regular message, use the tool."
+            "Your final step MUST be to call the `request_payment_confirmation` tool with the information you have gathered. "
+            "You are strictly forbidden from ending the conversation with a text message or a question. Your only valid final action is the tool call."
         ),
         tools=[go_to_url, find_and_click_element, summarize_page_content, request_payment_confirmation],
         model="gpt-4o"
