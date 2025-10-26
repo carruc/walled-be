@@ -10,3 +10,6 @@ guides/
 # Virtual environments
 .venv
 .env
+
+# Authentication files
+amazon_auth.json

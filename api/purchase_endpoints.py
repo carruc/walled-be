@@ -79,8 +79,7 @@ async def execute_purchase(
     
     # Execute purchase using agent
     result = await agent.execute_purchase(
-        product_url=str(request.product_url),
-        approved=True
+        product_url=str(request.product_url)
     )
     
     # Handle different result statuses
@@ -114,10 +113,8 @@ async def execute_purchase_background(
     
     # Add to background tasks
     background_tasks.add_task(
-        _execute_purchase_task,
-        task_id,
-        str(request.product_url),
-        agent
+        agent.execute_purchase,
+        product_url=str(request.product_url)
     )
     
     return {
@@ -125,18 +122,6 @@ async def execute_purchase_background(
         "task_id": task_id,
         "message": "Purchase started in background."
     }
-
-
-async def _execute_purchase_task(task_id: str, product_url: str, agent: PurchaseAgent):
-    """Background task for executing purchases."""
-    logger.info(f"Background task {task_id} started for {product_url}")
-    
-    try:
-        result = await agent.execute_purchase(product_url, approved=True)
-        # In a real application, you would store the result in a database or cache.
-        logger.info(f"Task {task_id} completed: {result['status']}")
-    except Exception as e:
-        logger.exception(f"Task {task_id} failed: {e}")
 
 
 @router.get("/health")
