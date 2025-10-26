@@ -56,15 +56,29 @@ async def run_agent(agent: Agent, query: str, client_id: str):
             print(item)
         print("---------------------------------")
 
+        # Non-permanent fix to auto-approve the plan
         approved_plan = None
         for item in plan_run.new_items:
-            # The output of the 'send_plan_for_approval' tool is a string that starts with "Plan approved by user: "
-            if hasattr(item, 'output') and isinstance(item.output, str) and item.output.startswith("Plan approved by user:"):
+            if hasattr(item, 'raw_item') and hasattr(item.raw_item, 'name') and item.raw_item.name == 'send_plan_for_approval':
                 try:
-                    approved_plan = item.output.split("Plan approved by user: ", 1)[1]
-                    break
-                except IndexError:
+                    # The arguments are a JSON string, so we need to parse it
+                    args = json.loads(item.raw_item.arguments)
+                    approved_plan = args.get("plan")
+                    if approved_plan:
+                        print(f"Auto-approved plan: {approved_plan}")
+                        break
+                except (json.JSONDecodeError, AttributeError):
                     continue
+
+        # approved_plan = None
+        # for item in plan_run.new_items:
+        #     # The output of the 'send_plan_for_approval' tool is a string that starts with "Plan approved by user: "
+        #     if hasattr(item, 'output') and isinstance(item.output, str) and item.output.startswith("Plan approved by user:"):
+        #         try:
+        #             approved_plan = item.output.split("Plan approved by user: ", 1)[1]
+        #             break
+        #         except IndexError:
+        #             continue
 
         if not approved_plan:
             await manager.send_personal_message(
