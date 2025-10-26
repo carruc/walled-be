@@ -43,7 +43,7 @@ async def send_plan_for_approval(plan: str):
 
 
 @tool
-async def request_payment_confirmation(amount: float, currency: str, item: str):
+async def request_payment_confirmation(amount: float, currency: str, item: str, link: str, site1: str, site1Domain: str, site2: str, site2Domain: str):
     """
     Requests user confirmation for a payment.
     This tool will pause execution until the user responds.
@@ -64,6 +64,11 @@ async def request_payment_confirmation(amount: float, currency: str, item: str):
             "amount": amount,
             "currency": currency,
             "item": item,
+            "link": link,
+            "site1": site1,
+            "site1Domain": site1Domain,
+            "site2": site2,
+            "site2Domain": site2Domain,
         }
     }
     await manager.send_personal_message(json.dumps(payload), client_id)

@@ -4,6 +4,8 @@ from agentic.tools import go_to_url, find_and_click_element, summarize_page_cont
     client_id_var, send_plan_for_approval
 from api.websocket import manager
 import json
+import asyncio
+from core.tasks import running_tasks
 
 load_dotenv()
 
@@ -30,8 +32,10 @@ def create_shopping_agent():
             "Research products based on the user request. "
             "Navigate e-commerce sites, compare, and provide a summary. "
             "IMPORTANT: For this test, after you have visited 3 websites, "
-            "assume your research is complete. Make up a realistic product name and price, "
-            "and then use the request_payment_confirmation tool to finish the task."
+            "assume your research is complete. Make up a realistic product name, price, "
+            "a product link, the shopping website name and domain, and a payment processor name and domain. "
+            "To finish the task, you must call the `request_payment_confirmation` tool. "
+            "Do not ask for confirmation using a regular message, use the tool."
         ),
         tools=[go_to_url, find_and_click_element, summarize_page_content, request_payment_confirmation],
         model="gpt-4o"
@@ -39,41 +43,50 @@ def create_shopping_agent():
 
 
 async def run_agent(agent: Agent, query: str, client_id: str):
-    client_id_var.set(client_id)
-    planner_agent = create_planner_agent()
-    plan_run = await Runner.run(
-        starting_agent=planner_agent,
-        input=query,
-    )
+    try:
+        client_id_var.set(client_id)
+        planner_agent = create_planner_agent()
+        plan_run = await Runner.run(
+            starting_agent=planner_agent,
+            input=query,
+        )
 
-    print("--- Planner Agent Completions ---")
-    for item in plan_run.new_items:
-        print(item)
-    print("---------------------------------")
+        print("--- Planner Agent Completions ---")
+        for item in plan_run.new_items:
+            print(item)
+        print("---------------------------------")
 
-    approved_plan = None
-    for item in plan_run.new_items:
-        # The output of the 'send_plan_for_approval' tool is a string that starts with "Plan approved by user: "
-        if hasattr(item, 'output') and isinstance(item.output, str) and item.output.startswith("Plan approved by user:"):
-            try:
-                approved_plan = item.output.split("Plan approved by user: ", 1)[1]
-                break
-            except IndexError:
-                continue
+        approved_plan = None
+        for item in plan_run.new_items:
+            # The output of the 'send_plan_for_approval' tool is a string that starts with "Plan approved by user: "
+            if hasattr(item, 'output') and isinstance(item.output, str) and item.output.startswith("Plan approved by user:"):
+                try:
+                    approved_plan = item.output.split("Plan approved by user: ", 1)[1]
+                    break
+                except IndexError:
+                    continue
 
-    if not approved_plan:
+        if not approved_plan:
+            await manager.send_personal_message(
+                json.dumps({"type": "status", "data": {"message": "Plan not approved or could not be parsed. Halting execution."}}),
+                client_id
+            )
+            return
+
+        shopping_run = await Runner.run(
+            starting_agent=agent,
+            input=f"Execute the following plan: {approved_plan}. Original user request: {query}",
+            max_turns=20,
+        )
+        print("--- Shopping Agent Completions ---")
+        for item in shopping_run.new_items:
+            print(item)
+        print("----------------------------------")
+    except asyncio.CancelledError:
         await manager.send_personal_message(
-            json.dumps({"type": "status", "data": {"message": "Plan not approved or could not be parsed. Halting execution."}}),
+            json.dumps({"type": "status", "data": {"message": "Agent execution was cancelled by the user."}}),
             client_id
         )
-        return
-
-    shopping_run = await Runner.run(
-        starting_agent=agent,
-        input=f"Execute the following plan: {approved_plan}. Original user request: {query}",
-        max_turns=20,
-    )
-    print("--- Shopping Agent Completions ---")
-    for item in shopping_run.new_items:
-        print(item)
-    print("----------------------------------")
+    finally:
+        if client_id in running_tasks:
+            del running_tasks[client_id]
