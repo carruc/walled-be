@@ -1,6 +1,6 @@
 from fastapi import APIRouter, BackgroundTasks
 from pydantic import BaseModel
-from agents.shopping_agent import create_shopping_agent, run_agent
+from agentic.shopping_agent import create_shopping_agent, run_agent
 from api.websocket import manager
 
 router = APIRouter()

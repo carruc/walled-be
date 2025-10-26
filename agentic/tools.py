@@ -1,10 +1,7 @@
-from openai_agents import tool
+from agents import function_tool as tool
 import asyncio
 import json
-from api.websocket import manager
-
-payment_confirmation_events = {}
-user_decisions = {}
+from api.websocket import manager, payment_confirmation_events, user_decisions
 
 # This is a hack to get the client_id to the tool.
 _client_id = None
@@ -43,7 +40,8 @@ async def request_payment_confirmation(amount: float, currency: str, item: str):
 
     decision = user_decisions.get(client_id, "denied")
     del payment_confirmation_events[client_id]
-    del user_decisions[client_id]
+    if client_id in user_decisions:
+        del user_decisions[client_id]
 
     if decision == "approved":
         return "Payment approved by user."

@@ -1,8 +1,10 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 import json
-from agents.tools import payment_confirmation_events, user_decisions
 
 router = APIRouter()
+
+payment_confirmation_events = {}
+user_decisions = {}
 
 
 class ConnectionManager:

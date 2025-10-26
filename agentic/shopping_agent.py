@@ -1,8 +1,6 @@
-import os
 from dotenv import load_dotenv
-from openai_agents import Agent, Runner
-from agents.tools import go_to_url, find_and_click_element, summarize_page_content, request_payment_confirmation
-
+from agents import Agent, Runner #, WebSearchTool, CodeInterpreterTool
+from agentic.tools import go_to_url, find_and_click_element, summarize_page_content, request_payment_confirmation
 load_dotenv()
 
 
@@ -22,7 +20,7 @@ def create_shopping_agent():
 async def run_agent(agent: Agent, query: str, client_id: str):
     # This is a bit of a hack to make the client_id available to the tool.
     # A better solution would be to use a stateful tool or context injection.
-    from agents.tools import set_client_id
+    from agentic.tools import set_client_id
     set_client_id(client_id)
     
     return await Runner.run(
