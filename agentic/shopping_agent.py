@@ -47,11 +47,13 @@ async def run_agent(agent: Agent, query: str, client_id: str):
             starting_agent=planner_agent,
             input=query,
         )
-
+        # Commented out for now to avoid printing the plan
+        '''
         print("--- Planner Agent Completions ---")
         for item in plan_run.new_items:
             print(item)
         print("---------------------------------")
+        '''
 
         # Non-permanent fix to auto-approve the plan
         approved_plan = None
@@ -62,7 +64,7 @@ async def run_agent(agent: Agent, query: str, client_id: str):
                     args = json.loads(item.raw_item.arguments)
                     approved_plan = args.get("plan")
                     if approved_plan:
-                        print(f"Auto-approved plan: {approved_plan}")
+                        #print(f"Auto-approved plan: {approved_plan}")
                         break
                 except (json.JSONDecodeError, AttributeError):
                     continue
@@ -89,10 +91,12 @@ async def run_agent(agent: Agent, query: str, client_id: str):
             input=f"Execute the following plan: {approved_plan}. Original user request: {query}",
             max_turns=20,
         )
+        '''
         print("--- Shopping Agent Completions ---")
         for item in shopping_run.new_items:
             print(item)
         print("----------------------------------")
+        '''
     except asyncio.CancelledError:
         await manager.send_personal_message(
             json.dumps({"type": "status", "data": {"message": "Agent execution was cancelled by the user."}}),
