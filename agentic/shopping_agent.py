@@ -46,6 +46,11 @@ async def run_agent(agent: Agent, query: str, client_id: str):
         input=query,
     )
 
+    print("--- Planner Agent Completions ---")
+    for item in plan_run.new_items:
+        print(item)
+    print("---------------------------------")
+
     approved_plan = None
     for item in plan_run.new_items:
         # The output of the 'send_plan_for_approval' tool is a string that starts with "Plan approved by user: "
@@ -63,7 +68,12 @@ async def run_agent(agent: Agent, query: str, client_id: str):
         )
         return
 
-    await Runner.run(
+    shopping_run = await Runner.run(
         starting_agent=agent,
         input=f"Execute the following plan: {approved_plan}. Original user request: {query}",
+        max_turns=20,
     )
+    print("--- Shopping Agent Completions ---")
+    for item in shopping_run.new_items:
+        print(item)
+    print("----------------------------------")
