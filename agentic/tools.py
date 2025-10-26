@@ -5,7 +5,7 @@ from api.websocket import manager, payment_confirmation_events, user_decisions, 
 from contextvars import ContextVar
 from core.guardrails import check_guardrails
 from core.config import GUARDRAIL_PI_ENABLED
-from core.guardrails import check_prompt_injection_with_runpod
+from core.guardrails import check_prompt_injection_with_runpod, PromptInjectionDetected
 from bs4 import BeautifulSoup
 import httpx
 from core.browser import BrowserManager
@@ -142,9 +142,13 @@ async def summarize_page_content():
     try:
         result = await check_prompt_injection_with_runpod(text)
         print("[Guardrail PI] Final result:", result)
+    except PromptInjectionDetected:
+        print("[Guardrail PI] Prompt injection detected!!!")
+        # Propagate to fail the tool call on high-confidence injection
+        raise
     except Exception as e:
         print("[Guardrail PI] Error during check:", e)
-    return text[:800] if text else "(No content)"
+    return text if text else "(No content)"
 
 
 @tool
@@ -173,6 +177,8 @@ async def summarize_webpage(url: str, max_chars: int = 5000):
     try:
         result = await check_prompt_injection_with_runpod(text)
         print("[Guardrail PI] Final result:", result)
+    except PromptInjectionDetected:
+        raise
     except Exception as e:
         print("[Guardrail PI] Error during check:", e)
 

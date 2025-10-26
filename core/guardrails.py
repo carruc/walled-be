@@ -30,6 +30,10 @@ async def check_guardrails(amount: float, currency: str, item: str) -> bool:
 logger = logging.getLogger("guardrails.prompt_injection")
 
 
+class PromptInjectionDetected(Exception):
+    pass
+
+
 async def check_prompt_injection_with_runpod(prompt: str) -> dict:
     """Call Runpod endpoint to check for prompt injection on the given prompt.
 
@@ -80,4 +84,51 @@ async def check_prompt_injection_with_runpod(prompt: str) -> dict:
             if elapsed >= RUNPOD_MAX_WAIT_S:
                 logger.warning("Guardrail poll timeout after %.1fs", elapsed)
                 break
-        return status_json or {}
+        # Analyze final status JSON and raise on high-confidence injection
+        result_json = status_json or {}
+
+        try:
+            outputs = []
+            out = result_json.get("output") or result_json.get("outputs") or result_json.get("result")
+            if isinstance(out, list):
+                outputs = out
+            elif isinstance(out, dict):
+                outputs = [out]
+
+            def check_entry(entry: dict) -> tuple[bool, float]:
+                # Direct label/score
+                label = str(entry.get("label") or entry.get("classification") or entry.get("prediction") or "").upper()
+                score = entry.get("score") or entry.get("confidence") or entry.get("probability")
+                if label == "INJECTION" and isinstance(score, (int, float)):
+                    return True, float(score)
+                # Nested labels list
+                labels = entry.get("labels") or entry.get("classes") or entry.get("categories")
+                if isinstance(labels, list):
+                    for item in labels:
+                        if not isinstance(item, dict):
+                            continue
+                        l = str(item.get("label") or item.get("name") or "").upper()
+                        s = item.get("score") or item.get("confidence") or item.get("probability")
+                        if l == "INJECTION" and isinstance(s, (int, float)):
+                            return True, float(s)
+                return False, 0.0
+
+            detected = False
+            detected_score = 0.0
+            for entry in outputs:
+                if isinstance(entry, dict):
+                    hit, sc = check_entry(entry)
+                    if hit and sc > detected_score:
+                        detected = True
+                        detected_score = sc
+
+            if detected and detected_score > 0.7:
+                raise PromptInjectionDetected(f"Prompt injection detected (score={detected_score:.2f})")
+        except PromptInjectionDetected:
+            # Re-raise our signal exception
+            raise
+        except Exception as e:
+            # Parsing errors should not fail the guardrail call itself
+            logger.warning("Error parsing guardrail output: %s", e)
+
+        return result_json
