@@ -4,6 +4,8 @@ import asyncio
 import httpx
 from .config import RUNPOD_API_KEY, RUNPOD_SL_ID, RUNPOD_POLL_INTERVAL_S, RUNPOD_MAX_WAIT_S
 
+logger = logging.getLogger("guardrails.prompt_injection")
+
 async def check_guardrails(amount: float, currency: str, item: str, site: str) -> bool:
     # In a real scenario, we would load the guardrails from a database or a config file.
     # For now, we'll use a hardcoded example.
@@ -83,6 +85,7 @@ async def check_prompt_injection_with_runpod(prompt: str) -> dict:
         result_json = status_json or {}
 
         try:
+            """
             outputs = []
             out = result_json.get("output") or result_json.get("outputs") or result_json.get("result")
             if isinstance(out, list):
@@ -116,9 +119,12 @@ async def check_prompt_injection_with_runpod(prompt: str) -> dict:
                     if hit and sc > detected_score:
                         detected = True
                         detected_score = sc
-
-            if detected and detected_score > 0.7:
-                raise PromptInjectionDetected(f"Prompt injection detected (score={detected_score:.2f})")
+            """
+            output = result_json.get("output");
+            print(f"[Guardrail PI] Output: {output}, label: {output['label']}, score: {output['score']}")
+            if output['label'] == "INJECTION" and output['score'] > 0.7:
+                print(f"[Guardrail PI] Prompt injection detected (score={output['score']:.2f})")
+                raise PromptInjectionDetected(f"Prompt injection detected (score={output['score']:.2f})")
         except PromptInjectionDetected:
             # Re-raise our signal exception
             raise
